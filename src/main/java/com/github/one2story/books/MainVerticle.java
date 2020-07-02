@@ -10,6 +10,7 @@ import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.ext.web.handler.StaticHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,6 +25,7 @@ public class MainVerticle extends AbstractVerticle {
 
     Router booksRouter = Router.router(vertx);
     booksRouter.route().handler(BodyHandler.create());
+    booksRouter.route("/*").handler(StaticHandler.create());
 
     // GET books
     getAll(booksRouter);
@@ -84,9 +86,18 @@ public class MainVerticle extends AbstractVerticle {
 
   private void handleError(Router booksRouter) {
     booksRouter.errorHandler(500, event -> {
+      if(event.failure() instanceof IllegalArgumentException)
+      {
+        event.response()
+          .putHeader(HttpHeaders.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
+          .setStatusCode(HttpResponseStatus.BAD_REQUEST.code())
+          .end(new JsonObject().put("error", event.failure().getMessage()).encode());
+        return;
+      }
       logger.error("Failed: " + event.failure());
       event.response()
         .putHeader(HttpHeaders.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
+        .setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code())
         .end(new JsonObject().put("error", event.failure().getMessage()).encode());
     });
   }
